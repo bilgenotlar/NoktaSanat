@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Noktaları Birleştir</title>
+  <style>
+    :root {
+      --bg-desk: #ede7d9;
+      --paper: #fdfaf2;
+      --paper-border: #dcd3be;
+      --ink: #2c353d;
+      --muted: #6c757d;
+      --accent: #d96b43;
+      --accent-soft: #f5dfd6;
+      --success: #2a856e;
+      --line-done: #2c353d;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-desk);
+      background-image: radial-gradient(#d8cfbc 1px, transparent 1px);
+      background-size: 20px 20px;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 720px;
+      background: var(--paper);
+      border: 1px solid var(--paper-border);
+      border-radius: 18px;
+      box-shadow: 0 12px 32px rgba(44, 53, 61, 0.08);
+      padding: 20px 24px 28px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 2px dashed var(--paper-border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .badge {
+      background: #f0d78c;
+      color: #5c4812;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button.icon-btn {
+      background: #f4efe4;
+      border: 1px solid var(--paper-border);
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button.icon-btn:hover {
+      background: #eae2d0;
+    }
+
+    .level-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .level-tab {
+      background: #f4efe4;
+      border: 1px solid var(--paper-border);
+      color: var(--ink);
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .level-tab.active {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+
+    .level-tab.completed::after {
+      content: " ✓";
+      color: #6ee7b7;
+      font-weight: 800;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .counter-pill {
+      background: #e3f1ec;
+      color: var(--success);
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: #ebe4d3;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--success);
+      transition: width 0.25s ease;
+    }
+
+    .board-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      max-height: 600px;
+      background: #fffdf8;
+      border: 1.5px solid var(--paper-border);
+      border-radius: 16px;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    svg#game-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #reveal-image {
+      opacity: 0;
+      transition: opacity 0.9s ease-in-out;
+      pointer-events: none;
+    }
+
+    #reveal-image.visible {
+      opacity: 1;
+    }
+
+    .dot-group {
+      cursor: pointer;
+      transition: opacity 0.5s ease;
+    }
+
+    .dot-group.faded {
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
+    .dot-circle {
+      fill: #ffffff;
+      stroke: var(--ink);
+      stroke-width: 2.2;
+      transition: r 0.15s ease, fill 0.15s ease, stroke 0.15s ease;
+    }
+
+    .dot-group.done .dot-circle {
+      fill: var(--ink);
+      stroke: var(--ink);
+    }
+
+    .dot-group.next .dot-circle {
+      fill: var(--accent-soft);
+      stroke: var(--accent);
+      stroke-width: 3;
+    }
+
+    .dot-pulse {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .dot-group.next .dot-pulse {
+      animation: pulseRing 1.4s infinite ease-out;
+    }
+
+    @keyframes pulseRing {
+      0% { r: 7; opacity: 0.85; }
+      100% { r: 20; opacity: 0; }
+    }
+
+    .dot-label {
+      font-size: 13px;
+      font-weight: 700;
+      fill: var(--ink);
+      pointer-events: none;
+    }
+
+    .dot-group.next .dot-label {
+      fill: var(--accent);
+      font-size: 14px;
+    }
+
+    .shake {
+      animation: shakeAnim 0.28s ease;
+    }
+
+    @keyframes shakeAnim {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .victory-banner {
+      display: none;
+      margin-top: 16px;
+      padding: 14px 18px;
+      background: #e6f4ef;
+      border: 1px solid #b7dfd1;
+      border-radius: 12px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .victory-banner.show {
+      display: flex;
+    }
+
+    .victory-text {
+      font-weight: 700;
+      color: #1e6351;
+    }
+
+    .next-btn {
+      background: var(--success);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 9px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+    }
+
+    .empty-state h3 {
+      margin: 10px 0 6px;
+      color: var(--ink);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <div class="brand">
+        <span style="font-size: 1.5rem;">✏️</span>
+        <h1>Noktaları Birleştir</h1>
+        <span class="badge">BULMACA</span>
+      </div>
+      <div class="controls">
+        <button class="icon-btn" id="btn-sound" title="Sesi Aç/Kapat">🔊 Ses Açık</button>
+        <button class="icon-btn" id="btn-reset" title="Bölümü Sıfırla">↺ Sıfırla</button>
+      </div>
+    </header>
+
+    <div class="level-tabs" id="level-tabs"></div>
+
+    <div class="status-bar">
+      <span id="status-text">Bulmacalar yükleniyor...</span>
+      <span class="counter-pill" id="counter-pill">Nokta: 0 / 0</span>
+    </div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="board-wrapper" id="board-wrapper">
+      <div class="empty-state" id="empty-state">
+        <div style="font-size: 2.5rem;">📖</div>
+        <h3>Bulmacalar Yükleniyor</h3>
+        <p id="empty-desc">Lütfen bekleyin...</p>
+      </div>
+      <svg id="game-svg" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
+        <image id="reveal-image" x="0" y="0" width="600" height="600" preserveAspectRatio="xMidYMid meet" />
+        <g id="lines-layer"></g>
+        <line id="drag-guide" x1="0" y1="0" x2="0" y2="0" stroke="#d96b43" stroke-width="2" stroke-dasharray="5,5" visibility="hidden" />
+        <g id="dots-layer"></g>
+      </svg>
+    </div>
+
+    <div class="victory-banner" id="victory-banner">
+      <span class="victory-text" id="victory-title">Harika! Resmi ortaya çıkardın.</span>
+      <button class="next-btn" id="btn-next-level">Sonraki Bulmaca →</button>
+    </div>
+  </div>
+
+  <script>
+    let levels = [];
+    let currentLevelIndex = 0;
+    let currentStep = 0;
+    let isDrawing = false;
+    let soundEnabled = true;
+    let completedSet = new Set();
+    let audioCtx = null;
+
+    const svg = document.getElementById('game-svg');
+    const linesLayer = document.getElementById('lines-layer');
+    const dotsLayer = document.getElementById('dots-layer');
+    const dragGuide = document.getElementById('drag-guide');
+    const revealImage = document.getElementById('reveal-image');
+    const levelTabs = document.getElementById('level-tabs');
+    const statusText = document.getElementById('status-text');
+    const counterPill = document.getElementById('counter-pill');
+    const progressFill = document.getElementById('progress-fill');
+    const victoryBanner = document.getElementById('victory-banner');
+    const emptyState = document.getElementById('empty-state');
+    const emptyDesc = document.getElementById('empty-desc');
+
+    function playTone(freq, type = 'sine', duration = 0.09, gainVal = 0.08) {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playVictoryFanfare() {
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((n, i) => {
+        setTimeout(() => playTone(n, 'triangle', 0.25, 0.1), i * 110);
+      });
+    }
+
+    async function loadPuzzles() {
+      try {
+        const response = await fetch('./bulmacalar.json?t=' + Date.now());
+        if (!response.ok) throw new Error('bulmacalar.json bulunamadı.');
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : (data.puzzles || data.levels || []);
+        if (!list.length) throw new Error('bulmacalar.json içinde henüz bölüm yok.');
+        levels = list;
+        emptyState.style.display = 'none';
+        renderTabs();
+        startLevel(0);
+      } catch (err) {
+        statusText.textContent = 'Bulmaca paketi yüklenemedi.';
+        emptyDesc.textContent = 'Bu dizinde "bulmacalar.json" dosyası bulunamadı veya henüz içerik eklenmemiş.';
+      }
+    }
+
+    function renderTabs() {
+      levelTabs.innerHTML = '';
+      levels.forEach((lvl, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'level-tab' + (idx === currentLevelIndex ? ' active' : '') + (completedSet.has(idx) ? ' completed' : '');
+        btn.textContent = lvl.title || `${idx + 1}. Bulmaca`;
+        btn.onclick = () => startLevel(idx);
+        levelTabs.appendChild(btn);
+      });
+    }
+
+    function startLevel(index) {
+      currentLevelIndex = index;
+      currentStep = 0;
+      isDrawing = false;
+      dragGuide.setAttribute('visibility', 'hidden');
+      victoryBanner.classList.remove('show');
+      linesLayer.innerHTML = '';
+      dotsLayer.innerHTML = '';
+
+      const level = levels[index];
+      const vb = Array.isArray(level.viewBox) && level.viewBox.length === 4
+        ? level.viewBox.join(' ')
+        : (Array.isArray(level.viewBox) && level.viewBox.length === 2
+          ? `0 0 ${level.viewBox[0]} ${level.viewBox[1]}`
+          : '0 0 600 600');
+      svg.setAttribute('viewBox', vb);
+
+      const parts = vb.split(' ').map(Number);
+      revealImage.setAttribute('x', parts[0] || 0);
+      revealImage.setAttribute('y', parts[1] || 0);
+      revealImage.setAttribute('width', parts[2] || 600);
+      revealImage.setAttribute('height', parts[3] || 600);
+
+      revealImage.classList.remove('visible');
+      if (level.image) {
+        revealImage.setAttribute('href', level.image);
+      } else {
+        revealImage.removeAttribute('href');
+      }
+
+      const pts = level.points || [];
+      pts.forEach((pt, i) => {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'dot-group' + (i === 0 ? ' next' : ''));
+        g.dataset.index = i;
+
+        const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        pulse.setAttribute('class', 'dot-pulse');
+        pulse.setAttribute('cx', pt.x);
+        pulse.setAttribute('cy', pt.y);
+        pulse.setAttribute('r', '7');
+
+        const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        hitArea.setAttribute('cx', pt.x);
+        hitArea.setAttribute('cy', pt.y);
+        hitArea.setAttribute('r', '18');
+        hitArea.setAttribute('fill', 'transparent');
+
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('class', 'dot-circle');
+        circle.setAttribute('cx', pt.x);
+        circle.setAttribute('cy', pt.y);
+        circle.setAttribute('r', '6.5');
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'dot-label');
+        label.setAttribute('x', pt.x + 10);
+        label.setAttribute('y', pt.y - 9);
+        label.textContent = i + 1;
+
+        g.appendChild(pulse);
+        g.appendChild(hitArea);
+        g.appendChild(circle);
+        g.appendChild(label);
+
+        g.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          handleDotInteract(i);
+          if (currentStep > 0 && currentStep < pts.length) {
+            isDrawing = true;
+          }
+        });
+
+        g.addEventListener('pointerenter', () => {
+          if (isDrawing) {
+            handleDotInteract(i);
+          }
+        });
+
+        dotsLayer.appendChild(g);
+      });
+
+      renderTabs();
+      updateStatus();
+    }
+
+    function handleDotInteract(index) {
+      const level = levels[currentLevelIndex];
+      const pts = level.points || [];
+      if (currentStep >= pts.length) return;
+
+      if (index === currentStep) {
+        const pt = pts[index];
+        const prevPt = index > 0 ? pts[index - 1] : null;
+
+        if (prevPt && !pt.break) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', prevPt.x);
+          line.setAttribute('y1', prevPt.y);
+          line.setAttribute('x2', pt.x);
+          line.setAttribute('y2', pt.y);
+          line.setAttribute('stroke', '#2c353d');
+          line.setAttribute('stroke-width', '3');
+          line.setAttribute('stroke-linecap', 'round');
+          linesLayer.appendChild(line);
+        }
+
+        const groups = dotsLayer.querySelectorAll('.dot-group');
+        groups[index].classList.remove('next');
+        groups[index].classList.add('done');
+
+        playTone(340 + index * 14, 'sine', 0.08, 0.08);
+        currentStep++;
+
+        if (currentStep < pts.length) {
+          groups[currentStep].classList.add('next');
+          if (pts[currentStep].break) {
+            isDrawing = false;
+            dragGuide.setAttribute('visibility', 'hidden');
+          }
+        } else {
+          finishLevel();
+        }
+        updateStatus();
+      } else if (index > currentStep) {
+        const groups = dotsLayer.querySelectorAll('.dot-group');
+        groups[index].classList.add('shake');
+        playTone(150, 'sawtooth', 0.12, 0.05);
+        setTimeout(() => groups[index].classList.remove('shake'), 300);
+      }
+    }
+
+    function finishLevel() {
+      isDrawing = false;
+      dragGuide.setAttribute('visibility', 'hidden');
+      completedSet.add(currentLevelIndex);
+      renderTabs();
+      playVictoryFanfare();
+
+      const groups = dotsLayer.querySelectorAll('.dot-group');
+      groups.forEach(g => g.classList.add('faded'));
+
+      if (levels[currentLevelIndex].image) {
+        revealImage.classList.add('visible');
+      }
+
+      document.getElementById('victory-title').textContent =
+        `Tebrikler! "${levels[currentLevelIndex].title || 'Bulmaca'}" tamamlandı.`;
+      victoryBanner.classList.add('show');
+    }
+
+    function updateStatus() {
+      const level = levels[currentLevelIndex];
+      const total = (level && level.points) ? level.points.length : 0;
+      counterPill.textContent = `Nokta: ${currentStep} / ${total}`;
+      const pct = total > 0 ? Math.round((currentStep / total) * 100) : 0;
+      progressFill.style.width = pct + '%';
+
+      if (total === 0) {
+        statusText.textContent = 'Bölümde nokta bulunamadı.';
+      } else if (currentStep === 0) {
+        statusText.textContent = 'Başlamak için 1 numaralı noktaya tıkla veya dokun.';
+      } else if (currentStep < total) {
+        const nextPt = level.points[currentStep];
+        statusText.textContent = nextPt.break
+          ? `Kalemi kaldır! Şimdi ${currentStep + 1} numaralı noktaya tıkla.`
+          : `Sıradaki nokta: ${currentStep + 1} (tıkla veya sürükle)`;
+      } else {
+        statusText.textContent = 'Tüm noktalar birleşti!';
+      }
+    }
+
+    svg.addEventListener('pointermove', (e) => {
+      if (!isDrawing) return;
+      const level = levels[currentLevelIndex];
+      const pts = level.points || [];
+      if (currentStep === 0 || currentStep >= pts.length) return;
+      if (pts[currentStep].break) {
+        dragGuide.setAttribute('visibility', 'hidden');
+        return;
+      }
+
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const cursor = pt.matrixTransform(svg.getScreenCTM().inverse());
+
+      const lastPt = pts[currentStep - 1];
+      dragGuide.setAttribute('x1', lastPt.x);
+      dragGuide.setAttribute('y1', lastPt.y);
+      dragGuide.setAttribute('x2', cursor.x);
+      dragGuide.setAttribute('y2', cursor.y);
+      dragGuide.setAttribute('visibility', 'visible');
+
+      const target = pts[currentStep];
+      const dist = Math.hypot(cursor.x - target.x, cursor.y - target.y);
+      if (dist < 18) {
+        handleDotInteract(currentStep);
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      isDrawing = false;
+      dragGuide.setAttribute('visibility', 'hidden');
+    });
+
+    document.getElementById('btn-sound').onclick = function () {
+      soundEnabled = !soundEnabled;
+      this.textContent = soundEnabled ? '🔊 Ses Açık' : '🔇 Ses Kapalı';
+    };
+
+    document.getElementById('btn-reset').onclick = () => {
+      if (levels.length) startLevel(currentLevelIndex);
+    };
+
+    document.getElementById('btn-next-level').onclick = () => {
+      if (!levels.length) return;
+      const next = (currentLevelIndex + 1) % levels.length;
+      startLevel(next);
+    };
+
+    loadPuzzles();
+  </script>
+</body>
+</html>
