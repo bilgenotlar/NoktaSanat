@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Noktaları Birleştir</title>
+  <title>Noktaları Birleştir — MaviBlue Stüdyo</title>
   <style>
     :root {
       --bg-desk: #ede7d9;
@@ -14,6 +14,7 @@
       --accent: #d96b43;
       --accent-soft: #f5dfd6;
       --success: #2a856e;
+      --studio-blue: #1e6091;
     }
 
     * {
@@ -54,6 +55,31 @@
       gap: 12px;
       padding-bottom: 14px;
       border-bottom: 2px dashed var(--paper-border);
+    }
+
+    .brand-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .studio-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--studio-blue);
+      text-decoration: none;
+      width: fit-content;
+      transition: color 0.15s ease, transform 0.15s ease;
+    }
+
+    .studio-link:hover {
+      color: var(--accent);
+      text-decoration: underline;
     }
 
     .brand {
@@ -394,10 +420,15 @@
 <body>
   <div class="app-container">
     <header>
-      <div class="brand">
-        <span style="font-size: 1.5rem;">✏️</span>
-        <h1>Noktaları Birleştir</h1>
-        <span class="badge">BULMACA</span>
+      <div class="brand-wrapper">
+        <a href="https://maviblue.win" target="_blank" rel="noopener noreferrer" class="studio-link" title="maviblue.win sitesini ziyaret et">
+          MaviBlue Stüdyo Sunar ↗
+        </a>
+        <div class="brand">
+          <span style="font-size: 1.5rem;">✏️</span>
+          <h1>Noktaları Birleştir</h1>
+          <span class="badge">BULMACA</span>
+        </div>
       </div>
       <div class="controls">
         <button class="icon-btn hint-btn" id="btn-hint" title="Sıradaki noktayı göster (Kısayol: H)">💡 İpucu</button>
@@ -462,7 +493,6 @@
     let completedTitles = new Set();
     let audioCtx = null;
 
-    // Yakınlaştırma (Zoom & Pan) değişkenleri
     let zoomScale = 1;
     let panX = 0;
     let panY = 0;
@@ -486,7 +516,6 @@
     const emptyDesc = document.getElementById('empty-desc');
     const zoomResetBtn = document.getElementById('zoom-reset');
 
-    // Kayıtlı ilerlemeyi yükle
     function loadProgress() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -529,7 +558,6 @@
     }
 
     function applyTransform() {
-      // Sınırları koru
       const maxPan = (zoomScale - 1) * 300;
       panX = Math.max(-maxPan, Math.min(maxPan, panX));
       panY = Math.max(-maxPan, Math.min(maxPan, panY));
@@ -729,7 +757,7 @@
       radarRing.setAttribute('cx', target.x);
       radarRing.setAttribute('cy', target.y);
       radarRing.classList.remove('ping');
-      void radarRing.offsetWidth; // Animasyonu yeniden başlat
+      void radarRing.offsetWidth;
       radarRing.classList.add('ping');
 
       playTone(880, 'sine', 0.16, 0.07);
@@ -746,7 +774,6 @@
       renderTabs();
       playVictoryFanfare();
 
-      // Hem noktaları hem çizgileri ince ve silik hale getir
       const groups = dotsLayer.querySelectorAll('.dot-group');
       groups.forEach(g => g.classList.add('faded'));
       linesLayer.classList.add('faded');
@@ -781,7 +808,6 @@
       }
     }
 
-    // Tuval üzerinde kaydırma (Pan) ve çizim takibi
     svg.addEventListener('pointerdown', (e) => {
       if (zoomScale > 1 && !isDrawing) {
         isPanning = true;
@@ -832,7 +858,6 @@
       dragGuide.setAttribute('visibility', 'hidden');
     });
 
-    // Fare tekerleği ile yakınlaştırma
     document.getElementById('board-wrapper').addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 0.25 : -0.25;
@@ -860,7 +885,6 @@
       startLevel(next);
     };
 
-    // Klavye kısayolları
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
