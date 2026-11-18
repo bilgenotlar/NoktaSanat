@@ -278,7 +278,14 @@
 
     .dot-group {
       cursor: pointer;
-      transition: opacity 0.7s ease;
+      opacity: 1;
+      transition: opacity 0.45s ease;
+    }
+
+    /* Henüz sırası gelmemiş gizli noktalar */
+    .dot-group.hidden-dot {
+      opacity: 0;
+      pointer-events: none;
     }
 
     .dot-group.faded {
@@ -484,6 +491,7 @@
 
   <script>
     const STORAGE_KEY = 'noktalari_birlestir_tamamlananlar_v1';
+    const VISIBLE_LOOKAHEAD = 5; // İlk açılışta ve her adımda önde görünecek nokta sayısı
 
     let levels = [];
     let currentLevelIndex = 0;
@@ -616,6 +624,18 @@
       });
     }
 
+    function updateVisibleWindow() {
+      const groups = dotsLayer.querySelectorAll('.dot-group');
+      const maxVisibleIndex = currentStep + VISIBLE_LOOKAHEAD - 1;
+      groups.forEach((g, idx) => {
+        if (idx <= maxVisibleIndex) {
+          g.classList.remove('hidden-dot');
+        } else {
+          g.classList.add('hidden-dot');
+        }
+      });
+    }
+
     function startLevel(index) {
       currentLevelIndex = index;
       currentStep = 0;
@@ -652,7 +672,8 @@
       const pts = level.points || [];
       pts.forEach((pt, i) => {
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.setAttribute('class', 'dot-group' + (i === 0 ? ' next' : ''));
+        const initialHidden = i >= VISIBLE_LOOKAHEAD ? ' hidden-dot' : '';
+        g.setAttribute('class', 'dot-group' + (i === 0 ? ' next' : '') + initialHidden);
         g.dataset.index = i;
 
         const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -733,6 +754,7 @@
 
         if (currentStep < pts.length) {
           groups[currentStep].classList.add('next');
+          updateVisibleWindow();
           if (pts[currentStep].break) {
             isDrawing = false;
             dragGuide.setAttribute('visibility', 'hidden');
@@ -741,7 +763,7 @@
           finishLevel();
         }
         updateStatus();
-      } else if (index > currentStep) {
+      } else if (index > currentStep && index < currentStep + VISIBLE_LOOKAHEAD) {
         const groups = dotsLayer.querySelectorAll('.dot-group');
         groups[index].classList.add('shake');
         playTone(150, 'sawtooth', 0.12, 0.05);
@@ -775,7 +797,10 @@
       playVictoryFanfare();
 
       const groups = dotsLayer.querySelectorAll('.dot-group');
-      groups.forEach(g => g.classList.add('faded'));
+      groups.forEach(g => {
+        g.classList.remove('hidden-dot');
+        g.classList.add('faded');
+      });
       linesLayer.classList.add('faded');
 
       if (level.image) {
