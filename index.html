@@ -173,9 +173,33 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
       font-size: 0.92rem;
       color: var(--muted);
       margin-bottom: 10px;
+    }
+
+    .status-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .zoom-badge {
+      display: none;
+      background: #f4efe4;
+      border: 1px solid var(--paper-border);
+      color: var(--ink);
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .zoom-badge.visible {
+      display: inline-block;
     }
 
     .counter-pill {
@@ -215,36 +239,6 @@
       touch-action: none;
     }
 
-    .zoom-controls {
-      position: absolute;
-      bottom: 12px;
-      right: 12px;
-      z-index: 10;
-      display: flex;
-      gap: 4px;
-      background: rgba(253, 250, 242, 0.92);
-      border: 1px solid var(--paper-border);
-      padding: 4px;
-      border-radius: 10px;
-      backdrop-filter: blur(4px);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-
-    .zoom-btn {
-      border: none;
-      background: transparent;
-      color: var(--ink);
-      font-weight: 700;
-      font-size: 0.82rem;
-      padding: 4px 9px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .zoom-btn:hover {
-      background: #ebe4d3;
-    }
-
     svg#game-svg {
       width: 100%;
       height: 100%;
@@ -261,7 +255,6 @@
       opacity: 1;
     }
 
-    /* Çizgi geçişleri: Oyun sırasında net, finalde ince ve silik */
     #lines-layer line {
       stroke: #3b4248;
       stroke-width: 2;
@@ -282,7 +275,6 @@
       transition: opacity 0.45s ease;
     }
 
-    /* Henüz sırası gelmemiş gizli noktalar */
     .dot-group.hidden-dot {
       opacity: 0;
       pointer-events: none;
@@ -328,7 +320,6 @@
       100% { r: 20; opacity: 0; }
     }
 
-    /* İpucu Radar Efekti */
     #radar-ring {
       fill: rgba(217, 107, 67, 0.14);
       stroke: var(--accent);
@@ -448,7 +439,10 @@
 
     <div class="status-bar">
       <span id="status-text">Bulmacalar yükleniyor...</span>
-      <span class="counter-pill" id="counter-pill">Nokta: 0 / 0</span>
+      <div class="status-pills">
+        <button class="zoom-badge" id="zoom-badge" title="Yakınlaştırmayı sıfırla">🔍 %100 ✕</button>
+        <span class="counter-pill" id="counter-pill">Nokta: 0 / 0</span>
+      </div>
     </div>
 
     <div class="progress-track">
@@ -456,12 +450,6 @@
     </div>
 
     <div class="board-wrapper" id="board-wrapper">
-      <div class="zoom-controls">
-        <button class="zoom-btn" id="zoom-out" title="Uzaklaş (-)">−</button>
-        <button class="zoom-btn" id="zoom-reset" title="Sıfırla">100%</button>
-        <button class="zoom-btn" id="zoom-in" title="Yakınlaş (+)">+</button>
-      </div>
-
       <div class="empty-state" id="empty-state">
         <div style="font-size: 2.5rem;">📖</div>
         <h3>Bulmacalar Yükleniyor</h3>
@@ -485,13 +473,13 @@
     </div>
 
     <div class="kbd-hint">
-      İpucu: <b>H</b> · Sonraki Noktayı Birleştir: <b>Boşluk</b> · Yakınlaştır: <b>+ / -</b> veya <b>Fare Tekerleği</b>
+      İpucu: <b>H</b> · Yakınlaştır: <b>İki Parmak</b>, <b>Çift Dokunuş</b> veya <b>Fare Tekerleği</b>
     </div>
   </div>
 
   <script>
     const STORAGE_KEY = 'noktalari_birlestir_tamamlananlar_v1';
-    const VISIBLE_LOOKAHEAD = 5; // İlk açılışta ve her adımda önde görünecek nokta sayısı
+    const VISIBLE_LOOKAHEAD = 5;
 
     let levels = [];
     let currentLevelIndex = 0;
@@ -501,12 +489,20 @@
     let completedTitles = new Set();
     let audioCtx = null;
 
+    // Yakınlaştırma ve çoklu dokunuş (Pinch-to-Zoom) değişkenleri
     let zoomScale = 1;
     let panX = 0;
     let panY = 0;
     let isPanning = false;
     let panStartX = 0;
     let panStartY = 0;
+
+    const activePointers = new Map();
+    let initialPinchDist = 0;
+    let initialPinchScale = 1;
+    let initialPinchMid = { x: 0, y: 0 };
+    let initialPinchPan = { x: 0, y: 0 };
+    let lastTapTime = 0;
 
     const svg = document.getElementById('game-svg');
     const viewportGroup = document.getElementById('viewport-group');
@@ -518,11 +514,11 @@
     const levelTabs = document.getElementById('level-tabs');
     const statusText = document.getElementById('status-text');
     const counterPill = document.getElementById('counter-pill');
+    const zoomBadge = document.getElementById('zoom-badge');
     const progressFill = document.getElementById('progress-fill');
     const victoryBanner = document.getElementById('victory-banner');
     const emptyState = document.getElementById('empty-state');
     const emptyDesc = document.getElementById('empty-desc');
-    const zoomResetBtn = document.getElementById('zoom-reset');
 
     function loadProgress() {
       try {
@@ -575,17 +571,26 @@
         'transform',
         `translate(${panX}, ${panY}) translate(${cx}, ${cy}) scale(${zoomScale}) translate(${-cx}, ${-cy})`
       );
-      zoomResetBtn.textContent = Math.round(zoomScale * 100) + '%';
+
+      if (zoomScale > 1.02) {
+        zoomBadge.textContent = `🔍 %${Math.round(zoomScale * 100)} ✕`;
+        zoomBadge.classList.add('visible');
+      } else {
+        zoomBadge.classList.remove('visible');
+      }
     }
 
     function setZoom(newScale) {
-      zoomScale = Math.max(1, Math.min(3, newScale));
-      if (zoomScale === 1) {
+      zoomScale = Math.max(1, Math.min(3.5, newScale));
+      if (zoomScale <= 1.02) {
+        zoomScale = 1;
         panX = 0;
         panY = 0;
       }
       applyTransform();
     }
+
+    zoomBadge.onclick = () => setZoom(1);
 
     async function loadPuzzles() {
       loadProgress();
@@ -685,7 +690,7 @@
         const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         hitArea.setAttribute('cx', pt.x);
         hitArea.setAttribute('cy', pt.y);
-        hitArea.setAttribute('r', '18');
+        hitArea.setAttribute('r', '20');
         hitArea.setAttribute('fill', 'transparent');
 
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -706,6 +711,12 @@
         g.appendChild(label);
 
         g.addEventListener('pointerdown', (e) => {
+          activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (activePointers.size > 1) {
+            isDrawing = false;
+            dragGuide.setAttribute('visibility', 'hidden');
+            return;
+          }
           e.stopPropagation();
           e.preventDefault();
           handleDotInteract(i);
@@ -715,7 +726,7 @@
         });
 
         g.addEventListener('pointerenter', () => {
-          if (isDrawing) {
+          if (isDrawing && activePointers.size === 1) {
             handleDotInteract(i);
           }
         });
@@ -833,23 +844,104 @@
       }
     }
 
+    function clientToSvgDelta(dx, dy) {
+      const rect = svg.getBoundingClientRect();
+      return {
+        x: (dx / rect.width) * 600,
+        y: (dy / rect.height) * 600
+      };
+    }
+
+    // Tek parmak kaydırma, iki parmakla büyütme (Pinch-to-Zoom) ve çift dokunma
     svg.addEventListener('pointerdown', (e) => {
-      if (zoomScale > 1 && !isDrawing) {
-        isPanning = true;
-        panStartX = e.clientX - panX;
-        panStartY = e.clientY - panY;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (activePointers.size === 2) {
+        isDrawing = false;
+        isPanning = false;
+        dragGuide.setAttribute('visibility', 'hidden');
+        const pts = [...activePointers.values()];
+        initialPinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        initialPinchScale = zoomScale;
+        initialPinchMid = {
+          x: (pts[0].x + pts[1].x) / 2,
+          y: (pts[0].y + pts[1].y) / 2
+        };
+        initialPinchPan = { x: panX, y: panY };
+        return;
+      }
+
+      if (activePointers.size === 1) {
+        // Çift dokunma / çift tıklama kontrolü (boş tuvalde)
+        const now = Date.now();
+        if (now - lastTapTime < 280) {
+          lastTapTime = 0;
+          if (zoomScale > 1.1) {
+            setZoom(1);
+          } else {
+            const rect = svg.getBoundingClientRect();
+            const relX = ((e.clientX - rect.left) / rect.width - 0.5) * 600;
+            const relY = ((e.clientY - rect.top) / rect.height - 0.5) * 600;
+            zoomScale = 1.9;
+            panX = -relX * (zoomScale - 1);
+            panY = -relY * (zoomScale - 1);
+            applyTransform();
+          }
+          return;
+        }
+        lastTapTime = now;
+
+        if (zoomScale > 1 && !isDrawing) {
+          isPanning = true;
+          panStartX = e.clientX;
+          panStartY = e.clientY;
+          initialPinchPan = { x: panX, y: panY };
+        }
       }
     });
 
     svg.addEventListener('pointermove', (e) => {
-      if (isPanning) {
-        panX = e.clientX - panStartX;
-        panY = e.clientY - panStartY;
+      if (activePointers.has(e.pointerId)) {
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+
+      // İki parmakla Pinch-to-Zoom ve kaydırma
+      if (activePointers.size === 2) {
+        const pts = [...activePointers.values()];
+        const currentDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        if (initialPinchDist > 10) {
+          const newScale = initialPinchScale * (currentDist / initialPinchDist);
+          zoomScale = Math.max(1, Math.min(3.5, newScale));
+
+          const currentMid = {
+            x: (pts[0].x + pts[1].x) / 2,
+            y: (pts[0].y + pts[1].y) / 2
+          };
+          const deltaSvg = clientToSvgDelta(
+            currentMid.x - initialPinchMid.x,
+            currentMid.y - initialPinchMid.y
+          );
+          panX = initialPinchPan.x + deltaSvg.x;
+          panY = initialPinchPan.y + deltaSvg.y;
+          if (zoomScale <= 1.02) {
+            zoomScale = 1;
+            panX = 0;
+            panY = 0;
+          }
+          applyTransform();
+        }
+        return;
+      }
+
+      if (isPanning && activePointers.size === 1) {
+        const deltaSvg = clientToSvgDelta(e.clientX - panStartX, e.clientY - panStartY);
+        panX = initialPinchPan.x + deltaSvg.x;
+        panY = initialPinchPan.y + deltaSvg.y;
         applyTransform();
         return;
       }
 
-      if (!isDrawing) return;
+      if (!isDrawing || activePointers.size !== 1) return;
       const level = levels[currentLevelIndex];
       const pts = level.points || [];
       if (currentStep === 0 || currentStep >= pts.length) return;
@@ -877,21 +969,27 @@
       }
     });
 
-    window.addEventListener('pointerup', () => {
-      isDrawing = false;
-      isPanning = false;
-      dragGuide.setAttribute('visibility', 'hidden');
-    });
+    function clearPointer(e) {
+      activePointers.delete(e.pointerId);
+      if (activePointers.size < 2) {
+        initialPinchDist = 0;
+      }
+      if (activePointers.size === 0) {
+        isDrawing = false;
+        isPanning = false;
+        dragGuide.setAttribute('visibility', 'hidden');
+      }
+    }
 
+    window.addEventListener('pointerup', clearPointer);
+    window.addEventListener('pointercancel', clearPointer);
+
+    // Fare tekerleği ile yakınlaştırma
     document.getElementById('board-wrapper').addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 0.25 : -0.25;
       setZoom(zoomScale + delta);
     }, { passive: false });
-
-    document.getElementById('zoom-in').onclick = () => setZoom(zoomScale + 0.35);
-    document.getElementById('zoom-out').onclick = () => setZoom(zoomScale - 0.35);
-    zoomResetBtn.onclick = () => setZoom(1);
 
     document.getElementById('btn-hint').onclick = triggerHint;
 
